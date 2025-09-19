@@ -25,10 +25,10 @@ export class MemoryController {
   };
   public sendMessage = async (req: Request, res: Response) => {
     const { body } = req;
-    //const message = await MemoryService.sendMessage(body.ucid, body.message, body.shopperId);
+    const message = await MemoryService.sendMessage(body.prompt, body.text, req);
     res.status(200).json({
       receivedData: body,
-      message: "test"
+      message: message
     });
   };
 
