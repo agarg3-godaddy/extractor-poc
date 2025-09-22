@@ -4,6 +4,8 @@ import { Memory } from 'mem0ai/oss';
 import { PgApi } from '../interface/api/pg-api';
 import { redisService } from '../services/redisService';
 import { CAASApi } from '../interface/api/caas-api';
+import { prompts } from '../constants/prompts';
+import { Feature } from '../models/featureModel';
 export const MemoryService = {
   async createSession(shopperId: string, req: any): Promise<string> {
     const ucid = randomUUID();
@@ -13,11 +15,14 @@ export const MemoryService = {
     return ucid;
   },
 
-  async sendMessage(prompt: string, text: string, req: any): Promise<any> {
+  async sendMessage(prompt: string, text: string, req: any): Promise<Feature> {
 
     const caasApi = new CAASApi();
+    if(!prompt ){
+      prompt = prompts.featureExtractionPrompt;
+    }
     const output = await caasApi.sendMessage(req,prompt, text);
-    return output;
+    return output as Feature;
   },
 
   async getShopperDetails(shopperId: string, ucid: string, req: any): Promise<any> {

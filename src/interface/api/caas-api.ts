@@ -187,7 +187,7 @@ export class CAASApi {
     req: any,
     systemPrompt: string,
     userMessage: string,
-  ): Promise<string> {
+  ): Promise<any> {
     const response = await this.callCAAS(req,systemPrompt, userMessage);
     return response.data.value.content;
   }
