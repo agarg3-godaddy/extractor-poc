@@ -1,7 +1,7 @@
 import { ExampleData } from "langextract";
 
 export const prompts = {
-    featureExtractionPrompt: `Analyze this live conversation between a user and support agent, then extract the following information in JSON format:
+    featureExtractionPromptUser: `Analyze this live conversation between a user and support agent, then extract the following information in JSON format:
 
 EXTRACT THESE FIELDS:
 
@@ -31,28 +31,18 @@ EXTRACT THESE FIELDS:
 
 3. PROBLEM_REPORTED - User's main issue (1-2 sentences)
 
-4. RESOLUTION - Solution provided by agent (1-2 sentences)
+4. CONTEXT - Relevant background (account type, urgency, previous attempts - 2-3 sentences max)
 
-5. OUTCOME - Current status:
-   • RESOLVED: Successfully resolved
-   • ESCALATED: Sent to higher tier
-   • PENDING: Awaiting user action
-   • UNRESOLVED: Still not resolved
-   • IN_PROGRESS: Actively being worked on
+5. RESOLUTION - Problem is solved or not, Boolean response
 
-6. CONTEXT - Relevant background (account type, urgency, previous attempts - 2-3 sentences max)
-
-7. TROUBLESHOOTING_STEPS - Numbered list of actual steps taken
 
 RETURN FORMAT:
 {
   "intent": "[code or empty string]",
   "product": "[codes or empty string]",
   "problemReported": "[text or empty string]",
-  "resolution": "[text or empty string]",
-  "outcome": "[code or empty string]",
   "context": "[text or empty string]",
-  "troubleshootingSteps": "[numbered list or empty string]"
+  "resolution": "[boolean or empty string]"
 }
 
 Rules:
@@ -61,8 +51,43 @@ Rules:
 - Product: can be multiple, comma-separated
 - Keep descriptions concise
 - Return ONLY the JSON, no explanations`,
+  featureExtractionPromptAgent: `Extract technical actions from the support agent's responses.
 
+Find:
+1. RESOLUTION: The fix or solution provided (1 sentence)
+2. TROUBLESHOOTING_STEPS: Numbered list of actions taken
 
+Return JSON:
+{
+  "resolution": "[solution or empty]",
+  "troubleshootingSteps": "[numbered list or empty]"
+}
+
+Ignore greetings and explanations. Focus only on technical actions and fixes.`,
+   agentPrompt: `CONTEXT FROM PREVIOUS INTERACTIONS:
+    {
+      "intent": "{intent}",
+      "product": "{product}",
+      "problemReported": "{problemReported}",
+      "previousResolutions": "{previousResolutions}",
+      "outcome": "{outcome}",
+      "context": "{context}",
+      "previousTroubleshootingSteps": "{previousTroubleshootingSteps}"
+    }
+
+    CURRENT USER MESSAGE:
+    {user_message}
+
+    ---
+
+    You are a technical support agent. Based on the user's history above and their current message:
+
+    1. Acknowledge any previous issues if relevant
+    2. Avoid repeating failed troubleshooting steps from history
+    3. Provide appropriate next-level support or alternative solutions
+    4. If previous outcome was UNRESOLVED/PENDING, continue from where last interaction ended
+
+    Respond naturally and helpfully to resolve their issue.`,
 };
 
 export const examples: ExampleData[] = [

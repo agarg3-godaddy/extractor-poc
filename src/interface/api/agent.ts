@@ -4,19 +4,15 @@ import { Feature } from '../../models/featureModel';
 
 
 export class Agent{
-    public async sendMessageToGDAgent(message: string, prompt: string): Promise<string>{
+    public async sendMessageToGDAgent(message: string): Promise<string>{
         try {
 
-        const goKnowbUrl = getMcpUrl('goknowb');
-        console.log(`🔗 Using: ${goKnowbUrl}\n`);
-        return goKnowbUrl;
-        /*
           const agent = new GDAgent({
             name: 'GD Agent',
-            instructions: prompt,
+            instructions: "You are support agent that can help with any issue related to GoDaddy's products and services.",
           });
           const result = await run(agent as any, message);
-          return result.finalOutput as string;*/
+          return result.finalOutput as string;
         } catch (error) {
             console.error("Error calling OpenAI:", error);
             return "Error: " + (error as Error).message;

@@ -109,7 +109,38 @@ export class RedisService {
       return false;
     }
   }
+  async setHash(key: string, hash: Record<string, string>, ttl?: number): Promise<void> {
+    await this.redis.hset(key, hash);
+    if (ttl) {
+      await this.redis.expire(key, ttl);
+    }
+  }
+  
+  async getHash(key: string): Promise<Record<string, string> | null> {
+    const hash = await this.redis.hgetall(key);
+    return Object.keys(hash).length > 0 ? hash : null;
+  }
+  
+  async getHashField(key: string, field: string): Promise<string | null> {
+    return await this.redis.hget(key, field);
+  }
 
+  // List operations for intent history
+  async lpush(key: string, ...values: string[]): Promise<number> {
+    return await this.redis.lpush(key, ...values);
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    return await this.redis.lrange(key, start, stop);
+  }
+
+  async ltrim(key: string, start: number, stop: number): Promise<string> {
+    return await this.redis.ltrim(key, start, stop);
+  }
+
+  async expire(key: string, seconds: number): Promise<number> {
+    return await this.redis.expire(key, seconds);
+  }
   // Close connection
   async disconnect(): Promise<void> {
     try {
