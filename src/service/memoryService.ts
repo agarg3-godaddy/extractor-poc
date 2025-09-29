@@ -57,7 +57,7 @@ export const MemoryService = {
 
   async sendMessage(prompt: string, text: string, req: any): Promise<string> {
     try {
-   
+      /*
       const getHistory= await redisService.getHash(`feature:test_1`);
       let agentPrompt = prompts.agentPrompt;
       agentPrompt = agentPrompt.replace('{user_message}', text);
@@ -66,8 +66,9 @@ export const MemoryService = {
       } 
       const agent = new Agent();
       const output = await agent.sendMessageToGDAgent(agentPrompt);
-      await this.extractFeatures('user', text, req);
-      await this.extractFeatures('agent', output, req);
+      */
+      const output = await this.extractFeatures('user', text, req);
+      //await this.extractFeatures('agent', output, req);
       
       return output;
     } catch (error) {
@@ -82,11 +83,12 @@ export const MemoryService = {
     const caasApi = new CAASApi();
     const prompt = sender === 'user' ? prompts.featureExtractionPromptUser : prompts.featureExtractionPromptAgent;
     const output = await caasApi.sendMessage(req, prompt, text);
-
-    const response = convertToFeature(output, text);
+    console.log('output', output);
+    return output;
+    //const response = convertToFeature(output, text);
     
     // Direct hash update - no need to get current values
-    await this.updateFeatureHash('test_1', response, sender);
+    //await this.updateFeatureHash('test_1', response, sender);
   },
 
   /**
