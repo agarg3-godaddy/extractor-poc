@@ -84,159 +84,67 @@ export const MemoryService = {
     const prompt = sender === 'user' ? prompts.featureExtractionPromptUser : prompts.featureExtractionPromptAgent;
     const output = await caasApi.sendMessage(req, prompt, text);
     console.log('output', output);
-    return output;
-    //const response = convertToFeature(output, text);
     
-    // Direct hash update - no need to get current values
-    //await this.updateFeatureHash('test_1', response, sender);
+    try {
+      // Parse the JSON response
+      const jsonResponse = JSON.parse(output);
+      
+      // Store the parsed JSON as hash in Redis - simple overwrite
+      await this.storeFeatureJsonAsHash('test_1', jsonResponse, sender, text);
+      
+      return jsonResponse;
+    } catch (error) {
+      console.error('Error parsing or storing feature JSON:', error);
+      return output; // Return raw output if parsing fails
+    }
   },
 
   /**
-   * Updates feature hash selectively - only updates fields with actual values
-   * Keeps existing values for empty fields
+   * Stores feature extraction JSON response as Redis hash - simple overwrite
    */
-  async updateFeatureHash(sessionId: string, feature: Feature, sender: string) {
+  async storeFeatureJsonAsHash(sessionId: string, jsonResponse: any, sender: string, userMessage?: string) {
     const hashKey = `feature:${sessionId}`;
     
     try {
-      // Get existing hash to preserve non-empty values
-      const existingHash = await redisService.getHash(hashKey) || {};
+      // Build hash object - simple overwrite approach
+      const hashData: Record<string, string> = {};
       
-      // Build update object with only non-empty values
-      const fieldsToUpdate: Record<string, string> = {};
-      
-      // Only update fields that have actual values (not empty strings)
-      if (feature.intent && feature.intent.trim() !== '') {
-        fieldsToUpdate.intent = feature.intent;
-      }
-      if (feature.product && feature.product.trim() !== '') {
-        fieldsToUpdate.product = feature.product;
-      }
-      if (feature.problemReported && feature.problemReported.trim() !== '') {
-        fieldsToUpdate.problemReported = feature.problemReported;
-      }
-      if (feature.context && feature.context.trim() !== '') {
-        fieldsToUpdate.context = feature.context;
-      }
-      if (feature.resolution && feature.resolution.trim() !== '') {
-        fieldsToUpdate.resolution = feature.resolution;
-      }
-      if (feature.outcome && feature.outcome.trim() !== '') {
-        fieldsToUpdate.outcome = feature.outcome;
-      }
-      if (feature.troubleshootingSteps && feature.troubleshootingSteps.trim() !== '') {
-        fieldsToUpdate.troubleshootingSteps = feature.troubleshootingSteps;
+      // Handle different JSON response structures
+      if (jsonResponse.facts && Array.isArray(jsonResponse.facts)) {
+        // Structure: { "facts": [{"factName": "INTENT", "factValue": "EMAIL_STORAGE"}] }
+        for (const fact of jsonResponse.facts) {
+          if (fact.factName && fact.factValue) {
+            const fieldName = fact.factName.toLowerCase();
+            hashData[fieldName] = fact.factValue;
+          }
+        }
+      } else if (typeof jsonResponse === 'object') {
+        // Direct object structure: { "intent": "BILLING", "product": "domains" }
+        for (const [key, value] of Object.entries(jsonResponse)) {
+          if (typeof value === 'string') {
+            hashData[key.toLowerCase()] = value;
+          }
+        }
       }
       
-      // Always update metadata
-      fieldsToUpdate.lastUpdatedBy = sender;
-      fieldsToUpdate.lastUpdatedAt = new Date().toISOString();
+      // Add metadata
+      hashData.lastUpdatedBy = sender;
+      hashData.lastUpdatedAt = new Date().toISOString();
       
-      // Only update if there are fields to update (excluding metadata)
-      const hasUpdates = Object.keys(fieldsToUpdate).some(key => 
-        key !== 'lastUpdatedBy' && key !== 'lastUpdatedAt'
-      );
+      // Add user message instead of raw response
+      if (userMessage) {
+        hashData.userMessage = userMessage;
+      }
       
-      if (hasUpdates) {
-        await redisService.setHash(hashKey, fieldsToUpdate, 36000);
-        console.log(`Feature hash updated for session ${sessionId} by ${sender}:`, Object.keys(fieldsToUpdate));
-      } else {
-        // Only update metadata if no other fields changed
-        await redisService.setHash(hashKey, {
-          lastUpdatedBy: sender,
-          lastUpdatedAt: new Date().toISOString()
-        }, 36000);
-        console.log(`Only metadata updated for session ${sessionId} by ${sender}`);
-      }
-
-      // Handle intent history as separate list (only if intent has value)
-      if (feature.intent && feature.intent.trim() !== '') {
-        await this.updateIntentHistory(sessionId, feature.intent, sender);
-      }
-
+      // Overwrite the entire hash
+      await redisService.setHash(hashKey, hashData, 36000);
+      console.log(`Feature JSON stored as hash for session ${sessionId} by ${sender}:`, Object.keys(hashData));
+      
     } catch (error) {
-      console.error('Error updating feature hash:', error);
+      console.error('Error storing feature JSON as hash:', error);
       throw error;
     }
   },
-
-  /**
-   * Alternative method for selective updates using individual field updates
-   * More efficient for single field updates
-   */
-  async updateFeatureField(sessionId: string, field: keyof Feature, value: string, sender: string) {
-    const hashKey = `feature:${sessionId}`;
-    
-    // Only update if value is not empty
-    if (value && value.trim() !== '') {
-      try {
-        // Update individual field
-        await redisService.setHash(hashKey, {
-          [field]: value,
-          lastUpdatedBy: sender,
-          lastUpdatedAt: new Date().toISOString()
-        }, 36000);
-        
-        console.log(`Field ${field} updated for session ${sessionId} by ${sender}`);
-        
-        // Handle intent history if updating intent field
-        if (field === 'intent') {
-          await this.updateIntentHistory(sessionId, value, sender);
-        }
-      } catch (error) {
-        console.error(`Error updating field ${field}:`, error);
-        throw error;
-      }
-    } else {
-      console.log(`Skipping empty field ${field} for session ${sessionId}`);
-    }
-  },
-
-  /**
-   * Updates intent history as a separate Redis list
-   */
-  async updateIntentHistory(sessionId: string, intent: string, sender: string) {
-    const intentListKey = `intent_history:${sessionId}`;
-    
-    try {
-      // Add new intent with timestamp and sender info
-      const intentEntry = JSON.stringify({
-        intent,
-        sender,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Add to list (most recent first)
-      await redisService.lpush(intentListKey, intentEntry);
-      
-      // Keep only last 20 intents to prevent memory bloat
-      await redisService.ltrim(intentListKey, 0, 19);
-      
-      // Set TTL for intent history
-      await redisService.expire(intentListKey, 36000);
-      
-      console.log(`Intent history updated: ${intent} by ${sender}`);
-    } catch (error) {
-      console.error('Error updating intent history:', error);
-      // Don't throw - this is supplementary data
-    }
-  },
-
-  /**
-   * Gets intent history for a session
-   */
-  async getIntentHistory(sessionId: string): Promise<any[]> {
-    const intentListKey = `intent_history:${sessionId}`;
-    
-    try {
-      const intentEntries = await redisService.lrange(intentListKey, 0, -1);
-      return intentEntries.map(entry => JSON.parse(entry));
-    } catch (error) {
-      console.error('Error getting intent history:', error);
-      return [];
-    }
-  },
-
 
   async getShopperDetails(shopperId: string, ucid: string, req: any): Promise<any> {
     // Check Redis cache first

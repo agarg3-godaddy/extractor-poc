@@ -45,9 +45,9 @@ export const prompts = {
   
   Input: My domain is abc.com and it is not working.
   Output: [
-    { "factName": "INTENT", "factValue": "DNS" },
-    { "factName": "PRODUCT", "factValue": "domains" },
-    { "factName": "PROBLEM_REPORTED", "factValue": "My domain is not working." }
+    "INTENT": { "factName": "INTENT", "factValue": "HOSTING" , "confidence": 0.95   },
+    "PRODUCT": { "factName": "PRODUCT", "factValue": "domains" , "confidence": 0.95   },
+    "PROBLEM_REPORTED": { "factName": "PROBLEM_REPORTED", "factValue": "My domain is not working." , "confidence": 0.95   }
   ]
   
   Return the facts and preferences in a JSON format as shown above. You MUST return a valid JSON object with a 'facts' key containing an array of strings.
