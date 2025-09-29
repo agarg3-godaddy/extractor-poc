@@ -100,41 +100,70 @@ export const MemoryService = {
   },
 
   /**
-   * Stores feature extraction JSON response as Redis hash - simple overwrite
+   * Stores feature extraction JSON response as Redis hash - fact_name:json structure
    */
   async storeFeatureJsonAsHash(sessionId: string, jsonResponse: any, sender: string, userMessage?: string) {
     const hashKey = `feature:${sessionId}`;
     
     try {
-      // Build hash object - simple overwrite approach
+      // Build hash object with fact_name:json structure
       const hashData: Record<string, string> = {};
       
       // Handle different JSON response structures
       if (jsonResponse.facts && Array.isArray(jsonResponse.facts)) {
-        // Structure: { "facts": [{"factName": "INTENT", "factValue": "EMAIL_STORAGE"}] }
-        for (const fact of jsonResponse.facts) {
-          if (fact.factName && fact.factValue) {
-            const fieldName = fact.factName.toLowerCase();
-            hashData[fieldName] = fact.factValue;
+        // New structure: { "facts": [{"INTENT": {"factName": "INTENT", "factValue": "EMAIL_STORAGE", "confidence": 0.95}}] }
+        for (const factObj of jsonResponse.facts) {
+          // Each factObj is like: {"INTENT": {"factName": "INTENT", "factValue": "EMAIL_STORAGE", "confidence": 0.95}}
+          for (const [factKey, factData] of Object.entries(factObj)) {
+            if (factData && typeof factData === 'object' && 'factValue' in factData) {
+              const factId = factKey.toLowerCase();
+              const factValue = String((factData as any).factValue || '');
+              const confidence = (factData as any).confidence || 0;
+              const currentTime = Date.now();
+              
+              // Create fact object in the required format
+              const factObject = {
+                fact_id: factId,
+                value: factValue,
+                confidence: confidence,
+                updated_at: currentTime,
+                text: userMessage || '',
+                source: sender,
+                actor: `${sender}::${sessionId}`
+              };
+              
+              // Store as JSON string in hash
+              hashData[factId] = JSON.stringify(factObject);
+            }
           }
         }
       } else if (typeof jsonResponse === 'object') {
         // Direct object structure: { "intent": "BILLING", "product": "domains" }
         for (const [key, value] of Object.entries(jsonResponse)) {
           if (typeof value === 'string') {
-            hashData[key.toLowerCase()] = value;
+            const factId = key.toLowerCase();
+            const currentTime = Date.now();
+            
+            // Create fact object in the required format
+            const factObject = {
+              fact_id: factId,
+              value: value,
+              confidence: 1.0,
+              updated_at: currentTime,
+              text: userMessage || '',
+              source: sender,
+              actor: `${sender}::${sessionId}`
+            };
+            
+            // Store as JSON string in hash
+            hashData[factId] = JSON.stringify(factObject);
           }
         }
       }
       
-      // Add metadata
+      // Add session metadata
       hashData.lastUpdatedBy = sender;
       hashData.lastUpdatedAt = new Date().toISOString();
-      
-      // Add user message instead of raw response
-      if (userMessage) {
-        hashData.userMessage = userMessage;
-      }
       
       // Overwrite the entire hash
       await redisService.setHash(hashKey, hashData, 36000);

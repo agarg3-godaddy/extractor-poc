@@ -37,7 +37,7 @@ export const prompts = {
   8. CONTEXT - Relevant background (account type, urgency, previous attempts - 2-3 sentences max)
   9. RESOLUTION - Problem is solved or not, Boolean response
 
-
+  Fetch confidence score for each fact.
   Here are some few shot examples:
   
   Input: Hi.
@@ -45,9 +45,9 @@ export const prompts = {
   
   Input: My domain is abc.com and it is not working.
   Output: [
-    "INTENT": { "factName": "INTENT", "factValue": "HOSTING" , "confidence": 0.95   },
-    "PRODUCT": { "factName": "PRODUCT", "factValue": "domains" , "confidence": 0.95   },
-    "PROBLEM_REPORTED": { "factName": "PROBLEM_REPORTED", "factValue": "My domain is not working." , "confidence": 0.95   }
+    "INTENT": { "factName": "INTENT", "factValue": "HOSTING" , "confidence": confidence_score   },
+    "PRODUCT": { "factName": "PRODUCT", "factValue": "domains" , "confidence": confidence_score   },
+    "PROBLEM_REPORTED": { "factName": "PROBLEM_REPORTED", "factValue": "My domain is not working." , "confidence": confidence_score   }
   ]
   
   Return the facts and preferences in a JSON format as shown above. You MUST return a valid JSON object with a 'facts' key containing an array of strings.
